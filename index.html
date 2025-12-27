@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>GitHub Pages 安全同步数据</title>
+    <style>
+        body { max-width: 600px; margin: 2rem auto; padding: 0 1rem; font-family: Arial; }
+        .container { padding: 2rem; border: 1px solid #eee; border-radius: 8px; }
+        #data-display { color: #2c3e50; font-weight: bold; }
+        input { width: 70%; padding: 0.5rem; margin-right: 0.5rem; }
+        button { padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>多端数据同步（安全版）</h1>
+        <p>当前同步数据：<span id="data-display">加载中...</span></p>
+        <div>
+            <input type="text" id="new-data" placeholder="输入要同步的内容">
+            <button onclick="updateData()">更新并同步数据</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== 此处修改为你的代理接口地址 ==========
+        const PROXY_API_URL = "https://baigouzi.github.io/gh-pages-sync/api/proxy.js";
+
+        window.onload = fetchData;
+
+        async function fetchData() {
+            try {
+                const response = await fetch(PROXY_API_URL, { method: 'GET' });
+                if (!response.ok) throw new Error(`请求失败：${response.status}`);
+                
+                const data = await response.json();
+                document.getElementById("data-display").textContent = data.content.content;
+                return { sha: data.sha, content: data.content };
+            } catch (error) {
+                console.error("读取数据失败：", error);
+                document.getElementById("data-display").textContent = "读取失败，请检查配置";
+            }
+        }
+
+        async function updateData() {
+            const newData = document.getElementById("new-data").value.trim();
+            if (!newData) {
+                alert("请输入要同步的内容！");
+                return;
+            }
+
+            try {
+                const dataInfo = await fetchData();
+                if (!dataInfo?.sha) throw new Error("无法获取数据版本");
+
+                const newContent = {
+                    content: newData,
+                    updateTime: new Date().toLocaleString()
+                };
+
+                const response = await fetch(PROXY_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        newContent: newContent,
+                        sha: dataInfo.sha
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert("数据同步成功！");
+                    document.getElementById("new-data").value = "";
+                    fetchData();
+                } else {
+                    throw new Error("更新失败：" + (result.error || "未知错误"));
+                }
+            } catch (error) {
+                console.error("更新数据失败：", error);
+                alert("同步失败：" + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
